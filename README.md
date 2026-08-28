@@ -14,8 +14,7 @@ Built for the DevFest DC 2026 Build-a-thon (concept 1.1).
 
 ## Team
 
-<!-- REQUIRED before submitting — fill in team name and your teammate -->
-- **Team name:** _TBD_
+**Waveparticle**
 - Suchir Vangaveeti — vangaveeti.v@northeastern.edu
 
 ## Run it
