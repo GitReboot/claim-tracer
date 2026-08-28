@@ -42,6 +42,9 @@ export async function POST(request: Request) {
     });
 
     const parsed = JSON.parse(raw || "{}");
+    // An empty list is ambiguous: the text genuinely had no claims, or the model
+    // returned nothing under load. Those need different messages, so the caller
+    // is told which happened rather than always seeing "no claims found".
     const claims: Claim[] = (Array.isArray(parsed.claims) ? parsed.claims : [])
       .slice(0, 8)
       .map((c: { text?: string; quote?: string }, i: number) => ({
@@ -51,6 +54,12 @@ export async function POST(request: Request) {
       }))
       .filter((c: Claim) => c.text.length > 0);
 
+    if (claims.length === 0) {
+      return NextResponse.json({
+        claims: [],
+        empty: raw.trim().length === 0 ? "no-response" : "no-claims",
+      });
+    }
     return NextResponse.json({ claims });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Couldn't read that text.";

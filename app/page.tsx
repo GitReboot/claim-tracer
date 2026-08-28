@@ -34,7 +34,11 @@ export default function Home() {
 
       const found: Claim[] = data.claims ?? [];
       if (found.length === 0) {
-        setError("No checkable factual claims in that text — only opinion or prediction.");
+        setError(
+          data.empty === "no-response"
+            ? "The model didn't answer that time — Gemini is under heavy load today. Try again."
+            : "No checkable factual claims in that text — only opinion or prediction.",
+        );
         return;
       }
 
