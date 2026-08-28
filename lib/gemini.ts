@@ -21,6 +21,25 @@ const CHAIN = [
   "gemini-flash-lite-latest",
 ].filter((m): m is string => Boolean(m));
 
+
+/**
+ * Remember which model last answered, and try it first next time.
+ *
+ * The chain is static, but model health is not: on 27-28 Aug 2026 the
+ * `gemini-flash-latest` alias returned 503 for over a day while the concrete
+ * model behind it was fine. Without this, every request pays the dead model's
+ * timeout before failing over — measured at 4.3s per attempt, on every call.
+ *
+ * Resets naturally when the instance recycles, so a recovered model gets picked
+ * up again rather than being blacklisted forever.
+ */
+let lastGood: string | null = null;
+
+function ordered(): string[] {
+  if (!lastGood) return CHAIN;
+  return [lastGood, ...CHAIN.filter((m) => m !== lastGood)];
+}
+
 const DEFAULT_HTTP = { timeout: 30_000, retryOptions: { attempts: 1 } };
 
 function isTransient(msg: string) {
@@ -59,7 +78,7 @@ export async function generate(
   const ai = client();
   let lastError: unknown;
 
-  for (const model of CHAIN) {
+  for (const model of ordered()) {
     // Models don't accept identical configs. Verified: gemini-flash-lite-latest
     // rejects `thinkingBudget: 0` with a 400 while accepting the same request
     // without it. So a 400 gets one retry with thinking config stripped before
@@ -73,7 +92,8 @@ export async function generate(
 
       try {
         const res = await ai.models.generateContent({ ...params, model, config });
-        return { text: res.text ?? "", model };
+        lastGood = model;
+      return { text: res.text ?? "", model };
       } catch (error) {
         lastError = error;
         const msg = error instanceof Error ? error.message : "";
@@ -118,7 +138,7 @@ export async function generateGrounded(
   const ai = client();
   let lastError: unknown;
 
-  for (const model of CHAIN) {
+  for (const model of ordered()) {
     try {
       const res = await ai.models.generateContent({
         ...params,
@@ -129,6 +149,7 @@ export async function generateGrounded(
           ...(params.config ?? {}),
         },
       });
+      lastGood = model;
       const gm = res.candidates?.[0]?.groundingMetadata;
       const chunks = (gm?.groundingChunks ?? []).map((c) => ({
         title: c.web?.title ?? "",
