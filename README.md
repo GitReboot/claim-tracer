@@ -1,36 +1,98 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Claim Tracer
 
-## Getting Started
+**Where did this actually come from?**
 
-First, run the development server:
+A viral post makes six factual claims and cites nothing. Claim Tracer splits the
+text into atomic claims, runs a grounded web search for the origin of each one,
+and labels it **Sourced**, **Weakly sourced**, or **Untraceable** — with the search
+queries and the sources it found shown alongside. It traces *origin*, not truth:
+"Untraceable" means nothing was found behind a claim, not that the claim is false.
+
+Built for the DevFest DC 2026 Build-a-thon (concept 1.1).
+
+**Live:** https://claim-tracer-887362198556.us-east1.run.app
+
+## Team
+
+<!-- REQUIRED before submitting — fill in team name and your teammate -->
+- **Team name:** _TBD_
+- Suchir Vangaveeti — vangaveeti.v@northeastern.edu
+
+## Run it
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.local.example .env.local   # add GEMINI_API_KEY
+npm install
+npm run dev                        # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+You need a Gemini API key from https://aistudio.google.com/apikey. **Billing must
+be enabled** — Search grounding's free 1,500/day allowance only exists on paid
+tiers; on a free key grounded calls return 429 immediately.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Deploy to Cloud Run:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+./deploy.sh                        # prints the public URL
+```
 
-## Learn More
+## How it works
 
-To learn more about Next.js, take a look at the following resources:
+Two calls, and they have to be separate.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**`/api/split`** — structured output, no tools. Breaks the text into claims that can
+stand alone, resolving pronouns so each is searchable on its own. Opinions,
+predictions and value judgements are excluded.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**`/api/trace`** — one grounded Google Search per claim, run in parallel. Returns
+prose describing what search found, plus the queries it chose and the sources.
 
-## Deploy on Vercel
+They are separate because **asking Gemini for JSON silently disables its search
+tool.** Verified directly: the same question asked in prose returned 8 grounding
+chunks; with `return ONLY JSON` it performed no search at all and returned empty
+grounding metadata. So the research half must be prose.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### The verdict is derived, not self-reported
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+A model asked "is this well sourced?" will vouch for something it invented. So the
+label comes from two things it can't fake:
+
+1. **Did search actually run?** Read off `groundingMetadata`, not assumed from the
+   call succeeding. No search or no sources → `untraceable`, regardless of how
+   confident the prose sounds.
+2. **A discrete marker** the model must emit on its own line: `ORIGIN: PRIMARY`,
+   `ORIGIN: SECONDARY`, or `ORIGIN: NONE`.
+
+An earlier version pattern-matched the prose instead. It scored *"can be directly
+traced to the 1889 World's Fair records"* as merely weak, because "traced" wasn't in
+the keyword list. Regex over natural language is guesswork; a marker is not.
+
+### Model fallback chain
+
+`lib/gemini.ts` walks `gemini-flash-latest` → `gemini-3.5-flash` →
+`gemini-flash-lite-latest`. On 27 Aug 2026 the *alias* returned 503 for over twelve
+hours while the concrete model behind it answered normally — the outage was in alias
+routing. Anything pinned to a single model ID would have been dead. It also handles
+404s from retired IDs and a 400 from `flash-lite` rejecting `thinkingBudget: 0`.
+
+## What we cut, and why
+
+- **No accounts, no database.** Paste, trace, read. Judges won't sign up for a demo,
+  and nothing here needs to persist.
+- **No truth judgement.** Deciding whether a claim is *correct* is a different and
+  much harder problem. Tracing whether anything is behind it is achievable and
+  useful on its own — and the honest version of what a search can tell you.
+- **Claims capped at 8.** Each one is a separate grounded search; more than that and
+  the demo stops being watchable.
+
+## Known limitations
+
+- **Tracing takes 20–60s per claim.** Grounded search is genuinely slow. Claims are
+  traced in parallel and verdicts stream in as they land, so the page fills
+  progressively rather than blocking.
+- **"Untraceable" is not "false."** It means a search didn't find an origin. Obscure
+  but true claims can land here.
+- **"Sourced" does not mean the source is right.** It means the claim can be traced
+  to an original record, not that the record is correct.
+- Search coverage is English-language and web-indexed; paywalled and offline sources
+  are invisible to it.

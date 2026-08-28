@@ -1,26 +1,91 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /*
+   * Neither surface nor ink is pure. #fbfbfa against #1c1c1a is roughly 15:1 —
+   * far past AA — while dropping the glare that pure #fff/#000 produces on a
+   * screen you're scanning numbers on for a while.
+   */
+  --background: #fbfbfa;
+  --foreground: #1c1c1a;
+  --surface: #ffffff;
+  --border: #e7e6e2;
+
+  /* Native widgets (select popups, scrollbars, range thumbs) follow the theme. */
+  color-scheme: light dark;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #131312;
+    --foreground: #e8e8e4;
+    --surface: #1c1c1b;
+    --border: #2e2e2b;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  /* Roomier than the 1.5 default; the single biggest lever on reading fatigue. */
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Tabular figures everywhere a number can change, so digits hold their column
+   instead of shifting as values update. */
+.tabular-nums,
+input[type="time"],
+input[type="date"],
+input[type="number"] {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Headings read calmer slightly tightened; body text does not. */
+h1,
+h2,
+h3 {
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+}
+
+/* The small uppercase labels this UI leans on need air to stay legible. */
+.uppercase {
+  letter-spacing: 0.08em;
+}
+
+select,
+option {
+  background-color: var(--surface);
+  color: var(--foreground);
+}
+
+select:focus option:checked {
+  background-color: var(--border);
+}
+
+/* Visible keyboard focus, not just the mouse-driven border change. */
+:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--foreground) 45%, transparent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

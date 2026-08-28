@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+.env.local
+.env*.local
+data/raw
+scripts/*.mjs
+scripts/*.mts
+npm-debug.log*
+README.md
+DEPLOY.md
