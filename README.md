@@ -16,6 +16,8 @@ Built for the DevFest DC 2026 Build-a-thon (concept 1.1).
 
 **Waveparticle**
 - Suchir Vangaveeti — vangaveeti.v@northeastern.edu
+- Uryaswi Bhowmick — uryaswibhowmick@gmail.com
+- Yue Li — liyue0021@gmail.com
 
 ## Run it
 
